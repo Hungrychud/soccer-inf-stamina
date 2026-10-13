@@ -1,6 +1,6 @@
 -- ============================================================
---  SOCCER HUB · Inf Stamina  (JDUI front-end)
---  JDUI is a Matcha Drawing-based UI lib.
+--  SOCCER HUB · Inf Stamina  (INS-ui front-end)
+--  INS-ui is the Matcha Drawing UI lib used by BetterVoid.
 --  Stamina patched via getgc/applygc on Sprint Constants.
 -- ============================================================
 
@@ -16,86 +16,71 @@ local function numericEntries()
 	end
 	return nums
 end
-local function apply(on)
-	pcall(applygc, numericEntries(), on and HACKED or ORIGINAL)
+local function applyStamina(v)
+	pcall(applygc, numericEntries(), v and HACKED or ORIGINAL)
 end
 
 -------------------------------------------------- safe re-run
-if _G.INF_UI then pcall(function() _G.INF_UI:Destroy() end) end
+if _G.INF_STAM and _G.INF_STAM.unload then pcall(_G.INF_STAM.unload) end
+local S = { on = true, running = true }
+_G.INF_STAM = S
 
--------------------------------------------------- load JDUI
-local ui = loadstring(game:HttpGet("https://raw.githubusercontent.com/jdev-studio/jdui/refs/heads/main/JDUI"))() or _G.JDUI
-assert(ui and ui.AddTab, "JDUI failed to load")
-_G.INF_UI = ui
+-------------------------------------------------- load INS-ui
+local Lib = loadstring(game:HttpGet("https://raw.githubusercontent.com/neaxusxgod-png/INS-ui/main/uilib.min.lua"))()
+assert(Lib and Lib.CreateWindow, "INS-ui failed to load")
 
-ui:SetTitle("Soccer Hub")
-ui:SetSubtitle("Unlimited Stamina")
-pcall(function() ui:SetTheme("Green") end)
-pcall(function() ui:SetKeybind(0xA1) end)       -- RightShift toggles the menu
-
--------------------------------------------------- stamina tab
-local tab = ui:AddTab({ Title = "Stamina", Icon = "zap" })
-
-local on = true
-tab:AddToggle({
-	Title       = "Unlimited Stamina",
-	Description = "Drain ~0 · instant refill · free jumps",
-	Default     = true,
-	Callback    = function(v) on = v; apply(v) end,
+local win = Lib:CreateWindow({
+	title    = "Soccer Hub",
+	subtitle = "Unlimited Stamina",
+	size     = Vector2.new(560, 360),
+	position = Vector2.new(60, 60),
+	menuKey  = "p",
+	accentA  = Color3.fromRGB(92, 220, 140),
+	accentB  = Color3.fromRGB(60, 180, 120),
+	theme    = { accent = Color3.fromRGB(92, 220, 140) },
+	opacity  = 0.95,
+	rounding = 1,
+	rowLines = true,
+	keybindOverlay = true,
+	startOpen = true,
 })
 
-tab:AddKeybind({
-	Title       = "Quick toggle",
-	Description = "Flip stamina on/off",
-	Default     = 0x47, -- G
-	Callback    = function() end,
-})
+local tab     = win:Tab("Stamina", "zap")
+local controls = tab:Section("Controls", "Left",  "toggle + keybinds")
+local status   = tab:Section("Status",   "Right", "live state")
 
-tab:AddDivider("")
-
--- user-settable UNLOAD key (Delete by default)
-local unloadBind = tab:AddKeybind({
-	Title       = "Unload Key",
-	Description = "Press this key to close the UI",
-	Default     = 0x2E, -- Delete (VK)
-})
-
-tab:AddButton({
-	Title       = "Unload now",
-	Description = "Close the GUI (stamina patch stays).",
-	ButtonText  = "Unload",
-	Risk        = true,
-	Callback    = function() pcall(function() ui:Destroy() end) end,
-})
-
--------------------------------------------------- apply initial ON
-apply(true)
-
--------------------------------------------------- unload-key watcher
--- armed only after the key has been released once (so rebinding it
--- in the UI doesn't instantly close the window).
-task.spawn(function()
-	local armed = false
-	local lastVK = unloadBind.Value
-	while _G.INF_UI == ui and ui.Alive do
-		local vk = unloadBind.Value
-		if vk ~= lastVK then armed = false; lastVK = vk end
-		if vk and type(vk) == "number" then
-			local down = iskeypressed(vk)
-			if not down then armed = true
-			elseif armed then
-				pcall(function() ui:Destroy() end)
-				break
-			end
+-------------------------------------------------- unload
+function S.unload()
+	S.running = false
+	pcall(function()
+		if win then
+			if win.Destroy then win:Destroy() elseif win.Unload then win:Unload() end
 		end
-		task.wait()
-	end
-end)
+	end)
+	pcall(function() if Lib and Lib.Destroy then Lib:Destroy() end end)
+	_G.INF_STAM = nil
+end
 
--- reassert stamina while UI alive
+-------------------------------------------------- controls
+local toggle = controls:Toggle("Unlimited Stamina", true, function(v)
+	S.on = v and true or false
+	applyStamina(S.on)
+end)
+if toggle and toggle.AddKeybind then
+	toggle:AddKeybind("g", "Toggle")   -- G = quick on/off
+end
+
+controls:Divider("System")
+controls:Button("Unload", function() S.unload() end):SetRisk()
+
+status:Label(function() return "Stamina: " .. (S.on and "ON" or "OFF") end)
+status:Label(function() return "Menu key: P  ·  Quick: G" end)
+
+-------------------------------------------------- apply initial ON + reassert
+applyStamina(true)
 task.spawn(function()
-	while _G.INF_UI == ui and ui.Alive do
+	while S.running and _G.INF_STAM == S do
 		task.wait(5)
-		if on then apply(true) end
+		if S.on then applyStamina(true) end
 	end
 end)

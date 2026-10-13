@@ -1,8 +1,8 @@
 # Soccer Hub · Unlimited Stamina
 
-Drawing-based GUI (for executors with the Matcha `Drawing` API) that gives
-**unlimited stamina** by patching the Sprint module's `Constants` via `getgc`/`applygc`
-— drain ≈ 0, instant refill, free jumps.
+Matcha Drawing-based GUI (uses the **INS-ui** library, same one BetterVoid uses) that
+gives **unlimited stamina** by patching the Sprint module's `Constants` via
+`getgc`/`applygc` — drain ≈ 0, instant refill, free jumps.
 
 ## Loadstring
 
@@ -12,17 +12,16 @@ loadstring(game:HttpGet("https://raw.githubusercontent.com/Hungrychud/soccer-inf
 
 ## Controls
 
-- **RightShift** — show / hide the menu
+- **P** — open / close the menu
 - **Unlimited Stamina** toggle — ON by default
-- **Quick toggle** (`G`) — flip stamina on/off
-- **Unload Key** (`Delete`) or the **Unload** button — closes the GUI (patch stays)
-- All keybinds rebindable in the UI (click the bind, press a new key)
+- **G** — quick on/off (toggle keybind, rebindable in-UI)
+- **Unload** button — closes the GUI
 - Drag the window by its header
 
 ## How it works
 
 Matcha's VM can't render Roblox `ScreenGui`, so the UI uses the **Drawing** library
-([JDUI](https://github.com/jdev-studio/jdui)). The stamina effect edits the live
+([INS-ui](https://github.com/neaxusxgod-png/INS-ui)). The stamina effect edits the live
 `DrainDuration` / `RefillDuration` / `JumpStaminaCost` / `StaminaCost` number constants
 in the running game via `getgc({...})` + `applygc(...)`. Toggle OFF restores the originals.
 
