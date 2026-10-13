@@ -1,6 +1,6 @@
 -- ============================================================
---  SOCCER HUB · Inf Stamina  (Nexa-UI front-end)
---  Nexa-UI is a Drawing-based lib (works in Matcha's VM).
+--  SOCCER HUB · Inf Stamina  (JDUI front-end)
+--  JDUI is a Matcha Drawing-based UI lib.
 --  Stamina patched via getgc/applygc on Sprint Constants.
 -- ============================================================
 
@@ -20,76 +20,81 @@ local function apply(on)
 	pcall(applygc, numericEntries(), on and HACKED or ORIGINAL)
 end
 
--------------------------------------------------- safe re-run (unload old UI)
-if _G.INF_NEXA then pcall(function() _G.INF_NEXA:Destroy() end) end
-if _G.INF_STAMINA then pcall(_G.INF_STAMINA.stop) end  -- kill old Drawing panel
+-------------------------------------------------- safe re-run
+if _G.INF_UI then pcall(function() _G.INF_UI:Destroy() end) end
+
+-------------------------------------------------- load JDUI
+local ui = loadstring(game:HttpGet("https://raw.githubusercontent.com/jdev-studio/jdui/refs/heads/main/JDUI"))() or _G.JDUI
+assert(ui and ui.AddTab, "JDUI failed to load")
+_G.INF_UI = ui
+
+ui:SetTitle("Soccer Hub")
+ui:SetSubtitle("Unlimited Stamina")
+pcall(function() ui:SetTheme("Green") end)
+pcall(function() ui:SetKeybind(0xA1) end)       -- RightShift toggles the menu
+
+-------------------------------------------------- stamina tab
+local tab = ui:AddTab({ Title = "Stamina", Icon = "zap" })
 
 local on = true
-
--------------------------------------------------- load Nexa-UI
-local src = game:HttpGet("https://raw.githubusercontent.com/OgTen/Nexa-UI/main/nexa-ui.lua")
-loadstring(src)()
-local Nexa = Nexa or rawget(getfenv(0), "Nexa")  -- lib sets a global
-assert(Nexa and Nexa.CreateWindow, "Nexa-UI failed to load")
-_G.INF_NEXA = Nexa
-
--------------------------------------------------- build window
-Nexa:CreateWindow({
-	Title    = "Soccer Hub",
-	Subtitle = "Unlimited Stamina",
-	Width    = 540,
-	Height   = 380,
-	Theme    = "Midnight",
-})
-Nexa:SetKeybind("rightshift") -- RightShift toggles the menu
-
-local main = Nexa:AddTab({ Title = "Main", Icon = "home", Select = true })
-
-local sec = main:AddSection("Stamina", "Drains to ~0, instant refill, free jumps.", { Column = "left" })
-
--- main toggle (starts ON)
-local staminaToggle = sec:AddToggle({
+tab:AddToggle({
 	Title       = "Unlimited Stamina",
-	Description  = "Patch Sprint Constants.",
+	Description = "Drain ~0 · instant refill · free jumps",
 	Default     = true,
+	Callback    = function(v) on = v; apply(v) end,
 })
-staminaToggle:OnChanged(function(v)
-	on = v
-	apply(v)
-	staminaToggle:SetDescription(v and "ACTIVE · no drain · free jumps" or "Disabled (originals restored).")
+
+tab:AddKeybind({
+	Title       = "Quick toggle",
+	Description = "Flip stamina on/off",
+	Default     = 0x47, -- G
+	Callback    = function() end,
+})
+
+tab:AddDivider("")
+
+-- user-settable UNLOAD key (Delete by default)
+local unloadBind = tab:AddKeybind({
+	Title       = "Unload Key",
+	Description = "Press this key to close the UI",
+	Default     = 0x2E, -- Delete (VK)
+})
+
+tab:AddButton({
+	Title       = "Unload now",
+	Description = "Close the GUI (stamina patch stays).",
+	ButtonText  = "Unload",
+	Risk        = true,
+	Callback    = function() pcall(function() ui:Destroy() end) end,
+})
+
+-------------------------------------------------- apply initial ON
+apply(true)
+
+-------------------------------------------------- unload-key watcher
+-- armed only after the key has been released once (so rebinding it
+-- in the UI doesn't instantly close the window).
+task.spawn(function()
+	local armed = false
+	local lastVK = unloadBind.Value
+	while _G.INF_UI == ui and ui.Alive do
+		local vk = unloadBind.Value
+		if vk ~= lastVK then armed = false; lastVK = vk end
+		if vk and type(vk) == "number" then
+			local down = iskeypressed(vk)
+			if not down then armed = true
+			elseif armed then
+				pcall(function() ui:Destroy() end)
+				break
+			end
+		end
+		task.wait()
+	end
 end)
 
--- a toggle-key for it (optional quick on/off)
-staminaToggle:AddKeybind({
-	Title   = "Stamina bind",
-	Default = "g",
-	Mode    = "Toggle",
-})
-
--- unload section
-local sys = main:AddSection("System", "Unload / menu controls.", { Column = "right" })
-sys:AddKeybind({
-	Title     = "Unload UI",
-	Default   = "delete",
-	Mode      = "Toggle",
-	OnPressed = function()
-		pcall(function() Nexa:Destroy() end)
-	end,
-})
-sys:AddButton({
-	Title      = "Unload now",
-	ButtonText = "Unload",
-	Variant    = "danger",
-	Callback   = function() pcall(function() Nexa:Destroy() end) end,
-})
-
--------------------------------------------------- apply initial ON state
-apply(true)
-staminaToggle:SetDescription("ACTIVE · no drain · free jumps")
-
--- keep reasserting while UI alive
+-- reassert stamina while UI alive
 task.spawn(function()
-	while _G.INF_NEXA == Nexa do
+	while _G.INF_UI == ui and ui.Alive do
 		task.wait(5)
 		if on then apply(true) end
 	end
