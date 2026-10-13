@@ -27,6 +27,7 @@ _G.INF_STAM = S
 
 -------------------------------------------------- load INS-ui
 local Lib = loadstring(game:HttpGet("https://raw.githubusercontent.com/neaxusxgod-png/INS-ui/main/uilib.min.lua"))()
+Lib = Lib or _G.INSUI  -- matcha drops top-level return; lib also sets _G.INSUI
 assert(Lib and Lib.CreateWindow, "INS-ui failed to load")
 
 local win = Lib:CreateWindow({
